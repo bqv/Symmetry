@@ -40,6 +40,8 @@ int irc_connect(char *host, char *port)
     struct addrinfo hints;
     struct addrinfo *ai, *p;
     char ip[INET6_ADDRSTRLEN];
+
+    wlog(DEBUG, "Selected host %s with port %s", host, port);
   
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_UNSPEC; // IPv4 or 6 (AF_INET or AF_INET6)
@@ -73,9 +75,10 @@ int irc_connect(char *host, char *port)
 
 	if ( (retval = connect(sockfd, p->ai_addr, p->ai_addrlen)) < 0 )
 	    die("Connection to %s failed [%d]", retval);
+	else break;
     }
     if ( p == NULL ) 
-	die("Could not resolve host: %s", HOST);
+	die("Could not connect to host: %s", HOST);
     else wlog(INFO, "Connected!");
 
     freeaddrinfo(ai);
@@ -91,15 +94,16 @@ int main(int argc, char* argv[])
     
     switch ( argc )
     {
+    default:
     case 0:
+    case 1:
 	fd = irc_connect(HOST, PORT);
 	break;
-    case 1:
-	fd = irc_connect(argv[0], PORT);
-	break;
     case 2:
-    default:
-	fd = irc_connect(argv[0], argv[1]);
+	fd = irc_connect(argv[1], PORT);
+	break;
+    case 3:
+	fd = irc_connect(argv[1], argv[2]);
 	break;
     }
 
@@ -115,9 +119,9 @@ int main(int argc, char* argv[])
 	while ( str )
 	{
 	    end = strchr(str, '\n');
-	    if ( end ) *end = '\0';
+	    if ( end ) *(end-1) = '\0';
 	    printf("==> %s\n", str);
-	    str = end ? end+1 : NULL;
+	    str = end ? ( *(end+1) == '\0' ? NULL : end+1 ) : NULL;
 	}
     }
     if ( len == -1 )
