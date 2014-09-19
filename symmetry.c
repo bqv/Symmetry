@@ -1,131 +1,46 @@
-// Symmetry: Bracket counting IRC daemon
-//  LICENSE: MPL2
-
-#include <stdio.h>
 #include <stdlib.h>
-#include <stdarg.h>
 #include <string.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
 
-#include <netinet/in.h>
-#include <arpa/inet.h>
+#include "logging.h"
+#include "net.h"
+#include "symmetry.h"
 
-#define HOST "irc.freenode.net"
-#define PORT "6667"
+enum {WAITING, REGISTERED} state = WAITING;
 
-#define MAXBUF 4096
-
-typedef enum {DEBUG, INFO, WARN, ERROR, FATAL} loglevel;
-const char *log_s[] = {"D", "I", "W", "E", "F"};
-
-#define die(...) wlog(FATAL, __VA_ARGS__)
-
-void wlog(loglevel level, const char *s, ...)
+void handle(int fd, char *line)
 {
-    char fmt[strlen(s)+5];
-    snprintf(fmt, sizeof(fmt), "%s: %s\n", log_s[level], s);
-    va_list args;
-    va_start(args, s);
-    vfprintf(stderr, fmt, args);
-    va_end(args);
-    if ( level >= FATAL ) exit(1);
-}
-
-int irc_connect(char *host, char *port)
-// Fill in addrinfo, and format ip to string
-{
-    int sockfd, retval;
-    struct addrinfo hints;
-    struct addrinfo *ai, *p;
-    char ip[INET6_ADDRSTRLEN];
-
-    wlog(DEBUG, "Selected host %s with port %s", host, port);
-  
-    memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_UNSPEC; // IPv4 or 6 (AF_INET or AF_INET6)
-    hints.ai_socktype = SOCK_STREAM; // TCP
-    hints.ai_flags = AI_PASSIVE; // Autodetect local host
-    if ( (retval = getaddrinfo(host, port, &hints, &ai)) != 0 )
-        die("Failed to resolve host: %s (%s)", HOST, gai_strerror(retval));
-
-    for ( p = ai; p != NULL; p = p->ai_next )
+    char *hostmask = 0, *command = 0, *params = 0;
+    wlog(MSG, "==> %s", line);
+    if ( state == WAITING )
     {
-	void *server; // sockaddr_in or sockaddr_in6
-	if ( p->ai_family == AF_INET )
-	{ // IPv4
-	    struct sockaddr_in *ipv4 = (struct sockaddr_in *)p->ai_addr;
-	    server = &(ipv4->sin_addr);
-	}
-	else
-	{ // IPv6
-	    struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *)p->ai_addr;
-	    server = &(ipv6->sin6_addr);
-	}
-	inet_ntop(p->ai_family, server, ip, sizeof(ip));
-
-	wlog(DEBUG, "Connecting to %s (%s)... ", HOST, ip);
-
-	if ( (sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) < 0 )
-	{ 
-	    wlog(DEBUG, "Could not create socket");
-	    continue;
-	}
-
-	if ( (retval = connect(sockfd, p->ai_addr, p->ai_addrlen)) < 0 )
-	    die("Connection to %s failed [%d]", retval);
-	else break;
-    }
-    if ( p == NULL ) 
-	die("Could not connect to host: %s", HOST);
-    else wlog(INFO, "Connected!");
-
-    freeaddrinfo(ai);
-        
-    return sockfd;
-}
-
-int main(int argc, char* argv[])
-{
-    int fd;
-    ssize_t len;
-    char buffer[MAXBUF];
-    
-    switch ( argc )
-    {
-    default:
-    case 0:
-    case 1:
-	fd = irc_connect(HOST, PORT);
-	break;
-    case 2:
-	fd = irc_connect(argv[1], PORT);
-	break;
-    case 3:
-	fd = irc_connect(argv[1], argv[2]);
-	break;
+	reply(fd, "USER symmetry 8 * :Symmetry");
+	reply(fd, "NICK symmetry");
+	state = REGISTERED;
+	return;
     }
 
-    len = recv(fd, buffer, MAXBUF, 0);
-    buffer[len] = '\0';
-    while ( len > 0 )
+    hostmask = line; // w/ :
+    command = strchr(hostmask, ' ');
+    *command = '\0';
+    command++;
+    params = strchr(command, ' ');
+    if ( params )
     {
-        //printf("=%03d=> %s", len, buffer);
-        len = recv(fd, buffer, MAXBUF-1, 0);
-        buffer[len] = '\0';
-
-	char *end, *str = buffer;
-	while ( str )
-	{
-	    end = strchr(str, '\n');
-	    if ( end ) *(end-1) = '\0';
-	    printf("==> %s\n", str);
-	    str = end ? ( *(end+1) == '\0' ? NULL : end+1 ) : NULL;
-	}
+	*params = '\0';
+	params++;
     }
-    if ( len == -1 )
-	die("Error reading from socket");
-    close(fd);
-    return 0;
+
+    if ( strcmp("ERROR", hostmask) == 0 )
+    {
+	wlog(DEBUG, "Server closed the connection");
+	exit(0);
+    }
+    else if ( strcmp("PING", hostmask) == 0 )
+    {
+	reply(fd, "PONG %s", command);
+    }
+    else if ( strcmp("001", command) == 0 )
+    {
+	reply(fd, "JOIN #koyomi");
+    }
 }
