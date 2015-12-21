@@ -27,33 +27,33 @@ int irc_connect(char *host, char *port)
 
     for ( p = ai; p != NULL; p = p->ai_next )
     {
-	void *server; // sockaddr_in or sockaddr_in6
-	if ( p->ai_family == AF_INET )
-	{ // IPv4
-	    struct sockaddr_in *ipv4 = (struct sockaddr_in *)p->ai_addr;
-	    server = &(ipv4->sin_addr);
-	}
-	else
-	{ // IPv6
-	    struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *)p->ai_addr;
-	    server = &(ipv6->sin6_addr);
-	}
-	inet_ntop(p->ai_family, server, ip, sizeof(ip));
+        void *server; // sockaddr_in or sockaddr_in6
+        if ( p->ai_family == AF_INET )
+        { // IPv4
+            struct sockaddr_in *ipv4 = (struct sockaddr_in *)p->ai_addr;
+            server = &(ipv4->sin_addr);
+        }
+        else
+        { // IPv6
+            struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *)p->ai_addr;
+            server = &(ipv6->sin6_addr);
+        }
+        inet_ntop(p->ai_family, server, ip, sizeof(ip));
 
-	wlog(DEBUG, "Connecting to %s (%s)... ", host, ip);
+        wlog(DEBUG, "Connecting to %s (%s)... ", host, ip);
 
-	if ( (sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) < 0 )
-	{ 
-	    wlog(DEBUG, "Could not create socket");
-	    continue;
-	}
+        if ( (sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) < 0 )
+        { 
+            wlog(DEBUG, "Could not create socket");
+            continue;
+        }
 
-	if ( (retval = connect(sockfd, p->ai_addr, p->ai_addrlen)) < 0 )
-	    die("Connection to %s failed [%d]", retval);
-	else break;
+        if ( (retval = connect(sockfd, p->ai_addr, p->ai_addrlen)) < 0 )
+            die("Connection to %s failed [%d]", retval);
+        else break;
     }
     if ( p == NULL ) 
-	die("Could not connect to host: %s", host);
+        die("Could not connect to host: %s", host);
     else wlog(INFO, "Connected!");
 
     freeaddrinfo(ai);

@@ -24,33 +24,36 @@ int main(int argc, char* argv[])
     default:
     case 0:
     case 1:
-	fd = irc_connect(HOST, PORT);
-	break;
+        fd = irc_connect(HOST, PORT);
+        break;
     case 2:
-	fd = irc_connect(argv[1], PORT);
-	break;
+        fd = irc_connect(argv[1], PORT);
+        break;
     case 3:
-	fd = irc_connect(argv[1], argv[2]);
-	break;
+        fd = irc_connect(argv[1], argv[2]);
+        break;
     }
 
-    len = recv(fd, buffer, MAXBUF-1, 0);
-    buffer[len] = '\0';
+    //reply(fd, "USER znc"); // HACK - ZNC doesn't respond until you write
+    //len = recv(fd, buffer, MAXBUF-1, 0);
+    //buffer[len] = '\0';
+    len = 1; // Less hacky - Doesn't send anything
+    buffer[0] = buffer[1] = '\0';
     while ( len > 0 )
     {
-	char *end, *str = buffer;
-	while ( str )
-	{
-	    end = strchr(str, '\n');
-	    if ( end ) *(end-1) = '\0';
-	    handle(fd, str);
-	    str = end ? ( *(end+1) == '\0' ? NULL : end+1 ) : NULL;
-	}
+        char *end, *str = buffer;
+        while ( str )
+        {
+            end = strchr(str, '\n');
+            if ( end ) *(end-1) = '\0';
+            handle(fd, str);
+            str = end ? ( *(end+1) == '\0' ? NULL : end+1 ) : NULL;
+        }
         len = recv(fd, buffer, MAXBUF-1, 0);
         buffer[len] = '\0';
     }
     if ( len == -1 )
-	die("Error reading from socket");
+        die("Error reading from socket");
     close(fd);
     return 0;
 }

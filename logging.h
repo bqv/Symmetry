@@ -1,7 +1,7 @@
 #ifndef LOGGING_H
 #define LOGGING_H
 
-typedef enum {DEBUG, INFO, MSG, WARN, ERROR, FATAL} loglevel;
+typedef enum {DEBUG, INFO, WARN, ERROR, FATAL, MSG} loglevel;
 
 #define die(...) wlog(FATAL, __VA_ARGS__)
 
